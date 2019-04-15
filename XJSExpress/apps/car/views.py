@@ -1,9 +1,11 @@
 from django.shortcuts import render
 from rest_framework import mixins, viewsets
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.car.models import Carinfo, Carimageinfo
 from apps.car.serializers import CarinfoListSerializer
+from apps.car.filters import CarFilter
 from utils import my_reponse
 
 
@@ -16,6 +18,8 @@ class CarListViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
     """
     queryset = Carinfo.objects.all()  # 获取车辆
     serializer_class = CarinfoListSerializer
+    filter_backends = (DjangoFilterBackend,)  # 设置过滤
+    filter_class = CarFilter
 
     # 重写
     def list(self, request, *args, **kwargs):

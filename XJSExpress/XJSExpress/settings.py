@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'car.apps.CarConfig',  # 车辆
     'driver.apps.DriverConfig',  # 驾驶员
     'goods.apps.GoodsConfig',  # 货单
+    'customer.apps.CustomerConfig',  # 顾客
 ]
 
 MIDDLEWARE = [

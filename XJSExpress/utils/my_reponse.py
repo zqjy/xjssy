@@ -3,7 +3,7 @@ from collections import OrderedDict
 from rest_framework.utils.serializer_helpers import ReturnList, ReturnDict
 
 
-def get_response_dict(data, msg=''):
+def get_response_dict(data='', msg=''):
     """
     添加返回数据字段
     :param data:

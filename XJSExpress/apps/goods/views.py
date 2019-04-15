@@ -13,7 +13,7 @@ from django.db import transaction
 from apps.goods.models import GoodsInfo, GoodsImageInfo, GoodsCommentImageInfo
 from apps.goods.serializers import GoodsInfoSerializer, CityWideSerializer, OnePieceSerializer, TheVehicleSerializer
 from apps.goods.filters import GoodsFilter
-from utils import my_reponse, my_utils
+from utils import my_reponse, my_utils, access_authority
 from XJSExpress import settings
 
 
@@ -57,6 +57,8 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
     全国零单添加
     the_vehicle_create：
     全国整单添加
+    get_order:
+    司机获取个人订单
     """
     pagination_class = GoodsPagination  # 指定自定义分页类
     filter_backends = (DjangoFilterBackend,)  # 设置过滤
@@ -64,6 +66,21 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
 
     # 设置了分页 list不返回结果
     def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(my_reponse.get_response_dict(serializer.data), status=status.HTTP_200_OK)
+
+    @access_authority.access_authority
+    def get_order(self, request, *args, **kwargs):
+        if not 'DriverId' in request.query_params.keys():
+            return Response(my_reponse.get_response_error_dict(msg='缺少司机Id'), status=status.HTTP_400_BAD_REQUEST)
+        if not 'GoodsStatus' in request.query_params.keys():
+            return Response(my_reponse.get_response_error_dict(msg='缺少订单类型'), status=status.HTTP_400_BAD_REQUEST)
+
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -137,7 +154,7 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
             return GoodsInfoSerializer
 
     def get_queryset(self):
-        if self.action == 'other':
+        if self.action == 'get_order':
             return GoodsInfo.objects.all().order_by('-PublishDate')
         else:
             # GoodsStatus 1：未运输 2：运输中 3：已到达
