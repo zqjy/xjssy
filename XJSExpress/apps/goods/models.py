@@ -43,7 +43,7 @@ class GoodsInfo(BaseModel):
                                      verbose_name='到达地址')
     UnloadingTime = models.DateTimeField(db_column='UnloadingTime', verbose_name='卸货时间')
     Distance = models.FloatField(db_column='Distance', blank=True, null=True, verbose_name='距离')
-    Grabbing = models.DateTimeField(db_column='Grabbing', verbose_name='')
+    Grabbing = models.DateTimeField(db_column='Grabbing', verbose_name='抓取')
     Weight = models.FloatField(db_column='Weight', blank=True, null=True, verbose_name='重量')
     Volume = models.FloatField(db_column='Volume', blank=True, null=True, verbose_name='体积')
     KM = models.FloatField(db_column='KM', blank=True, null=True, verbose_name='距离')
@@ -67,7 +67,7 @@ class GoodsInfo(BaseModel):
         verbose_name_plural = verbose_name
 
     def __str__(self):
-        return self.GoodsId
+        return str(self.GoodsId)
 
 
 class GoodsImageInfo(BaseModel):
@@ -83,7 +83,7 @@ class GoodsImageInfo(BaseModel):
         verbose_name_plural = verbose_name
 
     def __str__(self):
-        return self.GoodsImageId
+        return str(self.GoodsImageId)
 
 
 class GoodsCommentImageInfo(BaseModel):
@@ -99,4 +99,42 @@ class GoodsCommentImageInfo(BaseModel):
         verbose_name_plural = verbose_name
 
     def __str__(self):
-        return self.GoodsCommentImageId
+        return str(self.GoodsCommentImageId)
+
+
+class KmPriceInfo(BaseModel):
+    KmPriceId = models.AutoField(db_column='KmPriceId', primary_key=True, verbose_name='主键ID', help_text='主键ID')
+    CarId = models.IntegerField(db_column='CarId', blank=True, null=True, verbose_name='车辆类型ID', help_text='车辆类型ID')
+    KmPriceType = models.IntegerField(db_column='KmPriceType', blank=True, null=True, verbose_name='计价方式',
+                                      help_text='计价方式')
+    StartKm = models.FloatField(db_column='StartKm', blank=True, null=True, verbose_name='起始公里数', help_text='起始公里数')
+    StartKmPrice = models.FloatField(db_column='StartKmPrice', blank=True, null=True, verbose_name='起步价格',
+                                     help_text='起步价格')
+    ExceedStartKm = models.FloatField(db_column='ExceedStartKm', blank=True, null=True, verbose_name='超出公里数',
+                                      help_text='超出公里数')
+    ExceedStartKmPrice = models.FloatField(db_column='ExceedStartKmPrice', blank=True, null=True, verbose_name='超出价格',
+                                           help_text='超出价格')
+    StartVolume = models.FloatField(db_column='StartVolume', blank=True, null=True, verbose_name='起步体积',
+                                    help_text='起步体积')
+    StartVolumePrice = models.FloatField(db_column='StartVolumePrice', blank=True, null=True, verbose_name='起步体积价格',
+                                         help_text='起步体积价格')
+    ExceedVolume = models.FloatField(db_column='ExceedVolume', blank=True, null=True, verbose_name='超出体积',
+                                     help_text='超出体积')
+    ExceedVolumePrice = models.FloatField(db_column='ExceedVolumePrice', blank=True, null=True, verbose_name='超出体积价格',
+                                          help_text='超出体积价格')
+    StartWeight = models.FloatField(db_column='StartWeight', blank=True, null=True, verbose_name='起步重力',
+                                    help_text='起步重力')
+    StartWeightPrice = models.FloatField(db_column='StartWeightPrice', blank=True, null=True, verbose_name='起步重力价格',
+                                         help_text='起步重力价格')
+    ExceedStartWeight = models.FloatField(db_column='ExceedStartWeight', blank=True, null=True, verbose_name='超出体积',
+                                          help_text='超出体积')
+    ExceedStartWeightPrice = models.FloatField(db_column='ExceedStartWeightPrice', blank=True, null=True,
+                                               verbose_name='超出体积价格', help_text='超出体积价格')
+
+    class Meta:
+        db_table = 'm_kmpriceinfo'
+        verbose_name = "运费价格信息"
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return str(self.KmPriceId)

@@ -15,7 +15,7 @@ def get_response_dict(data='', msg=''):
         dict["Msg"] = "获取成功"
     else:
         dict["Msg"] = msg
-    dict["Sussess"] = True
+    dict["Success"] = True
     list = []
     if isinstance(data, ReturnList):  # 数据列表
         dict["Data"] = data

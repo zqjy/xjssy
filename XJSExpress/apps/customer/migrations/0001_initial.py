@@ -14,27 +14,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='CustomerAccountInfo',
-            fields=[
-                ('Status', models.IntegerField(blank=True, db_column='Status', null=True, verbose_name='状态')),
-                ('AddUser', models.IntegerField(blank=True, db_column='AddUser', null=True, verbose_name='添加人员')),
-                ('AddTime', models.DateTimeField(db_column='AddTime', verbose_name='添加时间')),
-                ('LastEditUser', models.IntegerField(blank=True, db_column='LastEditUser', null=True, verbose_name='最后修改用户')),
-                ('LastEditTime', models.DateTimeField(db_column='LastEditTime', verbose_name='最后修改时间')),
-                ('CustomerAccountId', models.IntegerField(db_column='CustomerAccountId', help_text='账户ID', primary_key=True, serialize=False)),
-                ('CustomerId', models.IntegerField(blank=True, db_column='CustomerId', help_text='顾客ID', null=True)),
-                ('Balance', models.FloatField(blank=True, db_column='Balance', help_text='余额', null=True)),
-                ('Arrival', models.FloatField(blank=True, db_column='Arrival', help_text='到账', null=True)),
-                ('NoArrival', models.FloatField(blank=True, db_column='NoArrival', help_text='未到账', null=True)),
-            ],
-            options={
-                'verbose_name': '顾客账户信息',
-                'managed': False,
-                'db_table': 'c_customeraccountinfo',
-                'verbose_name_plural': '顾客账户信息',
-            },
-        ),
-        migrations.CreateModel(
             name='CustomerAccountDetailsInfo',
             fields=[
                 ('Status', models.IntegerField(blank=True, db_column='Status', null=True, verbose_name='状态')),

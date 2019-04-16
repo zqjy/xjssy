@@ -1,4 +1,4 @@
-import os, shutil
+import os, shutil, json, math
 from rest_framework import mixins, viewsets, status
 from rest_framework.response import Response
 from rest_framework import filters
@@ -10,9 +10,10 @@ from datetime import datetime
 from collections import OrderedDict
 from django.db import transaction
 
-from apps.goods.models import GoodsInfo, GoodsImageInfo, GoodsCommentImageInfo
-from apps.goods.serializers import GoodsInfoSerializer, CityWideSerializer, OnePieceSerializer, TheVehicleSerializer
+from apps.goods.models import GoodsInfo, GoodsImageInfo, GoodsCommentImageInfo, KmPriceInfo
+from apps.goods.serializers import GoodsInfoSerializer, CityWideSerializer, OnePieceSerializer, TheVehicleSerializer, ReceiveSerializer
 from apps.goods.filters import GoodsFilter
+from apps.area.views import AreaListViewSet
 from utils import my_reponse, my_utils, access_authority
 from XJSExpress import settings
 
@@ -38,13 +39,14 @@ class GoodsPagination(PageNumberPagination):
             ('previous', self.get_previous_link()),
             ('Code', 1),
             ('Msg', '获取成功'),
-            ('Sussess', True),
+            ('Success', True),
             ('results', []),
             ('Data', data)
         ]))
 
 
-class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
+class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
+                       mixins.CreateModelMixin,
                        viewsets.GenericViewSet):
     """
     list:
@@ -99,7 +101,7 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(my_reponse.get_response_dict(msg='保存成功'), status=status.HTTP_201_CREATED, headers=headers)
 
     def one_pice_create(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -143,6 +145,22 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    @access_authority.access_authority
+    def receive_goods(self, request, goods_id,*args, **kwargs):
+        """
+        接单
+        """
+        goods_info = GoodsInfo.objects.filter(GoodsId=goods_id).first()
+        if not goods_info:
+            return Response(my_reponse.get_response_error_dict(msg='订单异常'), status=status.HTTP_400_BAD_REQUEST)
+        instance = goods_info
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(my_reponse.get_response_dict(serializer.data), status=status.HTTP_201_CREATED)
+
+
     def get_serializer_class(self):
         if self.action == 'city_wide_create':
             return CityWideSerializer
@@ -150,12 +168,38 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
             return OnePieceSerializer
         elif self.action == 'the_vehicle_create':
             return TheVehicleSerializer
+        elif self.action == 'receive_goods':
+            return ReceiveSerializer
         else:
             return GoodsInfoSerializer
 
     def get_queryset(self):
         if self.action == 'get_order':
             return GoodsInfo.objects.all().order_by('-PublishDate')
+        elif self.action == 'receive_goods':
+            return GoodsInfo.objects.all().order_by('-PublishDate')
         else:
             # GoodsStatus 1：未运输 2：运输中 3：已到达
             return GoodsInfo.objects.filter(GoodsStatus=1).order_by('-PublishDate')
+
+
+class PriceInfoViewSet(viewsets.GenericViewSet):
+    def get_price(self, request, car_id, type, sp_id, sc_id, s_addr, dp_id, dc_id, d_addr, weight=0.0, volume=0.0):
+        """
+        获取订单价格
+        :param request:
+        :param car_id: 车辆类型ID
+        :param sp_id: 起始地省份ID
+        :param sc_id: 起始地市ID
+        :param s_addr: 起始地详细地址
+        :param dp_id: 目的地省份ID
+        :param dc_id: 目的地市ID
+        :param d_addr: 目的地详细地址
+        :param weight: 重量 全国零单使用
+        :param volume: 体积 全国零单使用
+        :return: 订单价格
+        """
+        return my_utils.get_price_static(car_id, type, sp_id, sc_id, s_addr, dp_id, dc_id, d_addr, weight, volume)
+
+
+

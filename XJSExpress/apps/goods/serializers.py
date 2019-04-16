@@ -9,6 +9,7 @@ from enum import Enum
 from apps.goods.models import GoodsInfo
 from apps.area.models import Areainfo
 from apps.car.models import Carinfo
+from apps.driver.models import LoginTokenInfo
 from utils import my_utils
 from XJSExpress import settings
 from db_base.base_model import BaseEnum
@@ -70,8 +71,8 @@ class BaseSerializer(serializers.ModelSerializer):
                                          error_messages={"blank": RET_STR + "联系电话", "required": RET_STR + "联系电话"})
     PublishDate = serializers.DateTimeField(read_only=True, help_text='发布时间', label='发布时间', default=datetime.now())
 
-    KM = serializers.FloatField(required=False, help_text='线路距离', label='公里')
-    GoodsFreight = serializers.FloatField(required=False, help_text='货物运费', label='运费')
+    KM = serializers.FloatField(read_only=True, required=False, help_text='线路距离', label='公里')
+    GoodsFreight = serializers.FloatField(read_only=True, required=False, help_text='货物运费', label='运费')
 
     PublishRemark = serializers.CharField(read_only=True, help_text='发布声明', label='发布声明')
     CarName = serializers.CharField(read_only=True, help_text='车辆类型', label='车辆类型')
@@ -84,6 +85,10 @@ class BaseSerializer(serializers.ModelSerializer):
     UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间', default=datetime.now())
     LoadTime = serializers.DateTimeField(read_only=True, help_text='装货时间', label='装货时间', default=datetime.now())
     MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间', default=datetime.now())
+    SendX = serializers.CharField(read_only=True, help_text='坐标', label='坐标')
+    SendY = serializers.CharField(read_only=True, help_text='坐标', label='坐标')
+    ArriveX = serializers.CharField(read_only=True, help_text='坐标', label='坐标')
+    ArriveY = serializers.CharField(read_only=True, help_text='坐标', label='坐标')
 
     # 校验方法
     def validate_CustomerId(self, CustomerId):
@@ -285,9 +290,6 @@ class CityWideSerializer(BaseSerializer):
 
     def validate(self, attrs):
         keys = attrs.keys()
-        # 公里数
-
-        # 运费
 
         # 订单类型
         attrs['GoodsType'] = GoodsEnum.CITY_WIDE.value
@@ -301,7 +303,7 @@ class CityWideSerializer(BaseSerializer):
             attrs['ArriveProvinceId'] = attrs['SendProvinceId']
             attrs['ArriveCityId'] = attrs['SendCityId']
         # 汽车类型
-        if 'CarId' in keys and not any(attrs['CarId']):
+        if 'CarId' in keys and not attrs['CarId']:
             car = Carinfo.objects.filter(CarId=attrs['CarId']).first()
             attrs['CarName'] = car.CarName if car else ''
         # 时间
@@ -319,6 +321,26 @@ class CityWideSerializer(BaseSerializer):
             attrs['MakeToOrderDate'] = attrs['PublishDate'] - timedelta(hours=1)  # 接单时间
         # 数据状态
         attrs['Status'] = BaseEnum.NORMAL.value
+        # 公里数
+        o_dict = my_utils.get_price_static(attrs['CarId'], 1,
+                                                   attrs['SendProvinceId'], attrs['SendCityId'], attrs['SendAddress'],
+                                                   attrs['ArriveProvinceId'], attrs['ArriveCityId'],
+                                                   attrs['ArriveAddress'], 0.0, 0.0)
+
+        if not o_dict.data.get('Success'):
+            raise serializers.ValidationError('获取公里数失败: '+ str(o_dict))
+        # print('*' * 20, o_dict.data)
+        km = o_dict.data.get('Data')[0].get('distance_value')/1000
+        freight = o_dict.data.get('Data')[0].get('price')
+        # print('*'*20,o_dict.data, km, freight)
+        attrs['KM'] = km
+        # 运费
+        attrs['GoodsFreight'] = freight
+        # 坐标
+        attrs['SendX'] = o_dict.data.get('Data')[0].get('send_x')
+        attrs['SendY'] = o_dict.data.get('Data')[0].get('send_y')
+        attrs['ArriveX'] = o_dict.data.get('Data')[0].get('arrive_x')
+        attrs['ArriveY'] = o_dict.data.get('Data')[0].get('arrive_y')
         return attrs
 
     class Meta:
@@ -331,6 +353,10 @@ class CityWideSerializer(BaseSerializer):
                                                'PublishDate',  # 发布时间
                                                'GoodsStatus',  # 订单状态
                                                'GoodsNo',  # 订单编号
+                                               'SendX',
+                                               'SendY',
+                                               'ArriveX',
+                                               'ArriveY',
                                                )
 
 
@@ -390,8 +416,14 @@ class OnePieceSerializer(CityWideSerializer):
         attrs_new = super().validate(attrs)
         attrs_new['GoodsType'] = GoodsEnum.ONE_PIECE.value
         # 公里数
+        o_dict = my_utils.get_price_static(attrs['CarId'], 1,
+                                                   attrs['SendProvinceId'], attrs['SendCityId'], attrs['SendAddress'],
+                                                   attrs['ArriveProvinceId'], attrs['ArriveCityId'],
+                                                   attrs['ArriveAddress'], attrs['Weight'], attrs['Volume'])
 
+        attrs['KM'] = float(o_dict.get('Data')[0].get('distance_value'))/1000
         # 运费
+        attrs['GoodsFreight'] = o_dict.get('Data')[0].get('price')
         return attrs_new
 
     class Meta:
@@ -433,3 +465,32 @@ class TheVehicleSerializer(OnePieceSerializer):
         model = BaseSerializer.Meta.model
         fields = OnePieceSerializer.Meta.fields + ('GoodsImg',  # 货物图片
                                                    )
+
+
+class ReceiveSerializer(serializers.ModelSerializer):
+    tokenId = serializers.CharField(write_only=True, help_text='token', label='token',
+                                         error_messages={"blank": BaseSerializer.RET_STR + "token",
+                                                         "required": BaseSerializer.RET_STR + "token"})
+
+    UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间', default=datetime.now())
+    MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间', default=datetime.now())
+    PublishDate = serializers.DateTimeField(read_only=True, help_text='发布时间', label='发布时间', default=datetime.now())
+    LastEditTime = serializers.DateTimeField(read_only=True, help_text='最后修改时间', label='最后修改时间', default=datetime.now())
+    LoadTime = serializers.DateTimeField(read_only=True, help_text='装货时间', label='装货时间', default=datetime.now())
+    Grabbing = serializers.DateTimeField(read_only=True, help_text='时间', label='时间', default=datetime.now())
+    AddTime = serializers.DateTimeField(read_only=True, help_text='添加时间', label='添加时间', default=datetime.now())
+
+    def validate_tokenId(self, tokenId):
+        token_info = LoginTokenInfo.objects.filter(LoginToken=tokenId).first()
+        if not token_info: raise serializers.ValidationError("无权限")
+        return token_info
+
+    def validate(self, attrs):
+        attrs["DriverId"] = attrs["token_info"].DriverId
+        attrs["MakeToOrderDate"] = datetime.now()
+        attrs["LastEditTime"] = datetime.now()
+        return attrs
+
+    class Meta:
+        model = GoodsInfo
+        fields = ('DriverId', 'MakeToOrderDate', 'LastEditTime')

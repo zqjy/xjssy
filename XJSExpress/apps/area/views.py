@@ -1,7 +1,8 @@
-import re
+import re, requests, json
 from django.shortcuts import render
 from rest_framework import mixins, viewsets, views
 from rest_framework.response import Response
+from rest_framework import status
 
 from apps.area.models import Areainfo
 from apps.area.serializers import AreainfoSerializer, AreainfoListSerializer
