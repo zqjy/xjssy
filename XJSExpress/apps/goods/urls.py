@@ -11,7 +11,7 @@ one_pice_create = GoodsInfoViewSet.as_view({"post": 'one_pice_create'})
 the_vehicle_create = GoodsInfoViewSet.as_view({"post": 'the_vehicle_create'})
 get_price = PriceInfoViewSet.as_view({'get': 'get_price'})
 receive_goods = GoodsInfoViewSet.as_view({'post': 'receive_goods'})
-verify_goods = GoodsInfoViewSet.as_view({'post': 'verify_goods'})
+finish_goods = GoodsInfoViewSet.as_view({'post': 'finish_goods'})
 
 urlpatterns = [
     url(r'^get_price/(?P<car_id>\d+)/(?P<type>\d+)/'
@@ -25,7 +25,7 @@ urlpatterns = [
     url(r'^one_pice_create', one_pice_create, name='one_pice_create'),  # 全国零单
     url(r'^the_vehicle_create', the_vehicle_create, name='the_vehicle_create'),  # 全国整车
     url(r'^get_order', get_order, name='get_order'),  # 司机获取个人订单
-    url(r'^receive_goods/(?P<goods_id>\d+)', receive_goods, name='receive_goods'),  # 接单
-    url(r'^verify_goods/(?P<goods_id>\d+)', verify_goods, name='verify_goods'),  # 接单
+    url(r'^receive/(?P<goods_id>\d+)', receive_goods, name='receive'),  # 接单
+    url(r'^finish/(?P<goods_id>\d+)', finish_goods, name='finish'),  # 完成货单
     url(r'^', include(router.urls)),  # Router 方式
 ]

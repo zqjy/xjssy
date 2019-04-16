@@ -44,5 +44,7 @@ urlpatterns = [
     url(r'^driver/', include('apps.driver.urls', namespace='driver')),
     # 货单
     url(r'^goods/', include('apps.goods.urls', namespace='goods')),
+    # 顾客
+    url(r'^customer/', include('apps.customer.urls', namespace='customer')),
 
 ]

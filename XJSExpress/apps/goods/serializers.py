@@ -472,13 +472,13 @@ class ReceiveSerializer(serializers.ModelSerializer):
                                          error_messages={"blank": BaseSerializer.RET_STR + "token",
                                                          "required": BaseSerializer.RET_STR + "token"})
 
-    UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间', default=datetime.now())
-    MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间', default=datetime.now())
-    PublishDate = serializers.DateTimeField(read_only=True, help_text='发布时间', label='发布时间', default=datetime.now())
-    LastEditTime = serializers.DateTimeField(read_only=True, help_text='最后修改时间', label='最后修改时间', default=datetime.now())
-    LoadTime = serializers.DateTimeField(read_only=True, help_text='装货时间', label='装货时间', default=datetime.now())
-    Grabbing = serializers.DateTimeField(read_only=True, help_text='时间', label='时间', default=datetime.now())
-    AddTime = serializers.DateTimeField(read_only=True, help_text='添加时间', label='添加时间', default=datetime.now())
+    UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间')
+    MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间')
+    PublishDate = serializers.DateTimeField(read_only=True, help_text='发布时间', label='发布时间')
+    LastEditTime = serializers.DateTimeField(read_only=True, help_text='最后修改时间', label='最后修改时间')
+    LoadTime = serializers.DateTimeField(read_only=True, help_text='装货时间', label='装货时间')
+    Grabbing = serializers.DateTimeField(read_only=True, help_text='时间', label='时间')
+    AddTime = serializers.DateTimeField(read_only=True, help_text='添加时间', label='添加时间')
 
     def validate_tokenId(self, tokenId):
         token_info = LoginTokenInfo.objects.filter(LoginToken=tokenId).first()
@@ -486,11 +486,35 @@ class ReceiveSerializer(serializers.ModelSerializer):
         return token_info
 
     def validate(self, attrs):
-        attrs["DriverId"] = attrs["token_info"].DriverId
+        attrs["DriverId"] = attrs["tokenId"].DriverId
         attrs["MakeToOrderDate"] = datetime.now()
+        attrs["LastEditTime"] = datetime.now()
+        del attrs['tokenId']
+        return attrs
+
+    class Meta:
+        model = GoodsInfo
+        fields = ('tokenId', 'DriverId', 'MakeToOrderDate', 'LastEditTime',
+                  'UnloadingTime', 'PublishDate', 'LoadTime', 'Grabbing', 'AddTime')
+
+
+class FinishSerializer(serializers.ModelSerializer):
+    UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间')
+    MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间')
+    PublishDate = serializers.DateTimeField(read_only=True, help_text='发布时间', label='发布时间')
+    LastEditTime = serializers.DateTimeField(read_only=True, help_text='最后修改时间', label='最后修改时间')
+    LoadTime = serializers.DateTimeField(read_only=True, help_text='装货时间', label='装货时间')
+    Grabbing = serializers.DateTimeField(read_only=True, help_text='时间', label='时间')
+    AddTime = serializers.DateTimeField(read_only=True, help_text='添加时间', label='添加时间')
+
+
+    def validate(self, attrs):
+        attrs['GoodsStatus'] = 3
+        attrs["UnloadingTime"] = datetime.now()
         attrs["LastEditTime"] = datetime.now()
         return attrs
 
     class Meta:
         model = GoodsInfo
-        fields = ('DriverId', 'MakeToOrderDate', 'LastEditTime')
+        fields = ('DriverId', 'MakeToOrderDate', 'LastEditTime',
+                  'UnloadingTime', 'PublishDate', 'LoadTime', 'Grabbing', 'AddTime')

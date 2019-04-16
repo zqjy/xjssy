@@ -35,7 +35,7 @@ def get_response_error_dict(msg=''):
     :return:
     """
     dict = OrderedDict()
-    dict["Code"] = 0
+    dict["Code"] = 2
     if not msg:
         dict["Msg"] = "参数异常"
     else:

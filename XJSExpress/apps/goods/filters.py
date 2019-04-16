@@ -7,6 +7,7 @@ from apps.car.models import Carinfo
 
 
 class GoodsFilter(filters.FilterSet):
+    CustomerId = filters.NumberFilter(method='customer_id_filter', label='顾客ID', help_text='发布信息顾客ID')
     DriverId = filters.NumberFilter(method='driver_id_filter', label='司机ID', help_text='接单的司机ID')
     GoodsStatus = filters.NumberFilter(method='goods_status_filter', label='订单状态', help_text='订单状态')
     GoodsType = filters.NumberFilter(method='goods_type_filter', label='货单类型', help_text='货单类型 1：同城 2：全国')
@@ -15,6 +16,9 @@ class GoodsFilter(filters.FilterSet):
     SendCityId = filters.NumberFilter(method='send_city_id_filter', label='起始地城市', help_text='起始地城市')
     ArriveProvinceId = filters.NumberFilter(method='arrive_province_id_filter', label='目的地省份', help_text='目的地省份')
     ArriveCityId = filters.NumberFilter(method='arrive_city_id_filter', label='目的地城市', help_text='目的地城市')
+
+    def customer_id_filter(self, queryset, name, value):
+        return queryset.filter(CustomerId=value)
 
     def goods_status_filter(self, queryset, name, value):
         return queryset.filter(GoodsStatus=value)

@@ -11,8 +11,10 @@ from collections import OrderedDict
 from django.db import transaction
 
 from apps.goods.models import GoodsInfo, GoodsImageInfo, GoodsCommentImageInfo, KmPriceInfo
-from apps.goods.serializers import GoodsInfoSerializer, CityWideSerializer, OnePieceSerializer, TheVehicleSerializer, ReceiveSerializer
+from apps.goods.serializers import GoodsInfoSerializer, CityWideSerializer, OnePieceSerializer, TheVehicleSerializer, \
+    ReceiveSerializer, FinishSerializer
 from apps.goods.filters import GoodsFilter
+from apps.driver.models import DriverInfo
 from apps.area.views import AreaListViewSet
 from utils import my_reponse, my_utils, access_authority
 from XJSExpress import settings
@@ -141,25 +143,47 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
                         shutil.rmtree(dirs)
                     raise e
 
-
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     @access_authority.access_authority
-    def receive_goods(self, request, goods_id,*args, **kwargs):
+    def receive_goods(self, request, goods_id, *args, **kwargs):
         """
         接单
         """
+        driver_info = DriverInfo.objects.filter(DriverId=request.token_info.DriverId).first()
+        if driver_info.IsCheck != 3:
+            return Response(my_reponse.get_response_error_dict(msg='请先提交资料，认证通过才能联系货主哦！')
+                            , status=status.HTTP_400_BAD_REQUEST)
         goods_info = GoodsInfo.objects.filter(GoodsId=goods_id).first()
+        if goods_info.MakeToOrderDate > goods_info.PublishDate:
+            return Response(my_reponse.get_response_error_dict(msg='货单已被接，请选择其他货单'), status=status.HTTP_400_BAD_REQUEST)
         if not goods_info:
-            return Response(my_reponse.get_response_error_dict(msg='订单异常'), status=status.HTTP_400_BAD_REQUEST)
+            return Response(my_reponse.get_response_error_dict(msg='货单异常'), status=status.HTTP_400_BAD_REQUEST)
+        partial = kwargs.pop('partial', False)
         instance = goods_info
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response(my_reponse.get_response_dict(serializer.data), status=status.HTTP_201_CREATED)
+        return Response(my_reponse.get_response_dict('', msg='接单成功'), status=status.HTTP_201_CREATED)
 
+    def finish_goods(self, request, goods_id, *args, **kwargs):
+        """
+        完成订单
+        """
+        goods_info = GoodsInfo.objects.filter(GoodsId=goods_id).first()
+        if goods_info.MakeToOrderDate < goods_info.PublishDate:
+            return Response(my_reponse.get_response_error_dict(msg='货单没有被接，不能完成'), status=status.HTTP_400_BAD_REQUEST)
+        if not goods_info:
+            return Response(my_reponse.get_response_error_dict(msg='货单异常'), status=status.HTTP_400_BAD_REQUEST)
+        partial = kwargs.pop('partial', False)
+        instance = goods_info
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(my_reponse.get_response_dict('', msg='货单完成'), status=status.HTTP_201_CREATED)
 
     def get_serializer_class(self):
         if self.action == 'city_wide_create':
@@ -170,6 +194,8 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
             return TheVehicleSerializer
         elif self.action == 'receive_goods':
             return ReceiveSerializer
+        elif self.action == 'finish_goods':
+            return FinishSerializer
         else:
             return GoodsInfoSerializer
 
@@ -180,7 +206,8 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
             return GoodsInfo.objects.all().order_by('-PublishDate')
         else:
             # GoodsStatus 1：未运输 2：运输中 3：已到达
-            return GoodsInfo.objects.filter(GoodsStatus=1).order_by('-PublishDate')
+            # return GoodsInfo.objects.filter(GoodsStatus=1).order_by('-PublishDate')
+            return GoodsInfo.objects.all().order_by('-PublishDate')
 
 
 class PriceInfoViewSet(viewsets.GenericViewSet):
@@ -200,6 +227,3 @@ class PriceInfoViewSet(viewsets.GenericViewSet):
         :return: 订单价格
         """
         return my_utils.get_price_static(car_id, type, sp_id, sc_id, s_addr, dp_id, dc_id, d_addr, weight, volume)
-
-
-
