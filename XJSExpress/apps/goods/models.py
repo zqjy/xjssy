@@ -73,7 +73,7 @@ class GoodsInfo(BaseModel):
 class GoodsImageInfo(BaseModel):
     GoodsImageId = models.AutoField(db_column='GoodsImageId', primary_key=True, verbose_name='图片ID')
     GoodsId = models.IntegerField(db_column='GoodsId', blank=True, null=True, verbose_name='货单ID')
-    ImageUrl = models.CharField(db_column='ImageUrl', max_length=100, blank=True, null=True, verbose_name='图片路径')
+    ImageUrl = models.ImageField(db_column='ImageUrl', blank=True, null=True, verbose_name='图片路径')
     IsCover = models.IntegerField(db_column='IsCover', blank=True, null=True, verbose_name='是否封面')
     IsCheck = models.IntegerField(db_column='IsCheck', blank=True, null=True, verbose_name='是否审核')
 
@@ -90,7 +90,7 @@ class GoodsCommentImageInfo(BaseModel):
     GoodsCommentImageId = models.AutoField(db_column='GoodsCommentImageId', primary_key=True, verbose_name='评论图片ID')
     Type = models.IntegerField(db_column='Type', blank=True, null=True, verbose_name='评论类型')
     GoodsId = models.IntegerField(db_column='GoodsId', blank=True, null=True, verbose_name='货单ID')
-    ImageUrl = models.ImageField(db_column='ImageUrl', max_length=100, blank=True, null=True, verbose_name='图片路径')
+    ImageUrl = models.ImageField(upload_to='goods', db_column='ImageUrl', max_length=100, blank=True, null=True, verbose_name='图片路径')
     IsCheck = models.IntegerField(db_column='IsCheck', blank=True, null=True, verbose_name='')
 
     class Meta:

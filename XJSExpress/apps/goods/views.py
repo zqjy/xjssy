@@ -13,8 +13,8 @@ from django.db import transaction
 from apps.goods.models import GoodsInfo, GoodsImageInfo, GoodsCommentImageInfo, KmPriceInfo
 from apps.goods.serializers import GoodsInfoSerializer, CityWideSerializer, OnePieceSerializer, TheVehicleSerializer, \
     ReceiveSerializer, FinishSerializer, AdoptSerializer, GoodsEnum, DriverCommentSerializer, CommentImageSerializer, \
-    CustomerCommentSerializer, CommentSerializer
-from apps.goods.filters import GoodsFilter, CommentFilter
+    CustomerCommentSerializer, CommentSerializer, GoodsImgSerializer
+from apps.goods.filters import GoodsFilter, CommentFilter, GoodsImgFilter
 from apps.driver.models import DriverInfo, DriverAccountInfo, DriverGoodsInfo
 from apps.customer.models import CustomerInfo
 from apps.area.views import AreaListViewSet
@@ -113,51 +113,31 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
 
     def city_wide_create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        ret = serializer.is_valid(raise_exception=False)
+        if not ret: return Response(my_reponse.get_response_error_dict(serializer.errors),
+                                    status=status.HTTP_400_BAD_REQUEST)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(my_reponse.get_response_dict(msg='保存成功'), status=status.HTTP_201_CREATED, headers=headers)
 
     def one_pice_create(self, request):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        ret = serializer.is_valid(raise_exception=False)
+        if not ret: return Response(my_reponse.get_response_error_dict(serializer.errors),
+                                    status=status.HTTP_400_BAD_REQUEST)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(my_reponse.get_response_dict(), status=status.HTTP_201_CREATED, headers=headers)
 
     def the_vehicle_create(self, request):
         with transaction.atomic():
             serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            # 获取图片文件
-            data_keys = serializer.validated_data.keys()
-            if 'GoodsImg' in data_keys:
-                img_file = serializer.validated_data['GoodsImg']
-                del serializer.validated_data['GoodsImg']
-            else:
-                img_file = None
+            ret = serializer.is_valid(raise_exception=False)
+            if not ret: return Response(my_reponse.get_response_error_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
             self.perform_create(serializer)
-            data = serializer.data
-            goods_no = data['GoodsNo']
-            goods_info = GoodsInfo.objects.get(GoodsNo=goods_no)
-            if img_file:
-                dirs = settings.MEDIA_URL + 'goods/' + goods_no + '/'
-                save_path = dirs + img_file.name  # 文件保存路径
-                GoodsImageInfo.objects.create(GoodsId=goods_info.GoodsId, ImageUrl=save_path, IsCover=0,
-                                              AddTime=datetime.now(), LastEditTime=datetime.now())
-                try:
-                    if not os.path.exists(dirs):  # 检测订单文件夹路径
-                        os.makedirs(dirs)
-                    with open(save_path, 'wb') as f:
-                        for content in img_file.chunks():
-                            f.write(content)
-                except Exception as e:
-                    if os.path.exists(dirs):
-                        shutil.rmtree(dirs)
-                    raise e
 
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(my_reponse.get_response_dict(), status=status.HTTP_201_CREATED, headers=headers)
 
     @access_authority.access_authority
     @transaction.atomic
@@ -315,6 +295,31 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
             # GoodsStatus 1：未运输 2：运输中 3：已到达
             # return GoodsInfo.objects.filter(GoodsStatus=1).order_by('-PublishDate')
             return GoodsInfo.objects.all().order_by('-PublishDate')
+
+class GoodsImageViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
+    """
+    create:
+    保存
+    list:
+    获取数据列表
+    """
+    queryset = GoodsImageInfo.objects.all()
+    filter_backends = (DjangoFilterBackend,)
+    filter_class = GoodsImgFilter
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        res = serializer.is_valid(raise_exception=False)
+        if not res: Response(my_reponse.get_response_error_dict(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return GoodsImgSerializer
+        else:
+            return GoodsImgSerializer
 
 
 class PriceInfoViewSet(viewsets.GenericViewSet):

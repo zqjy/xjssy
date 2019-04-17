@@ -6,14 +6,14 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from enum import Enum
 
-from apps.goods.models import GoodsInfo, GoodsCommentImageInfo
+from apps.goods.models import GoodsInfo, GoodsCommentImageInfo, GoodsImageInfo
 from apps.area.models import Areainfo
 from apps.car.models import Carinfo
 from apps.driver.models import LoginTokenInfo
 from utils import my_utils
 from XJSExpress import settings
 from db_base.base_model import BaseEnum
-from db_base.base_serializers import BaseSerializer
+from db_base.base_serializers import MyBaseSerializer
 
 
 class GoodsEnum(Enum):
@@ -341,10 +341,16 @@ class CityWideSerializer(BaseGoodsSerializer):
         # 数据状态
         attrs['Status'] = BaseEnum.NORMAL.value
         # 公里数
-        o_dict = my_utils.get_price_static(attrs['CarId'], 1,
+        if 'CarId' not in keys:
+            o_dict = my_utils.get_price_static(1, 1,
                                                    attrs['SendProvinceId'], attrs['SendCityId'], attrs['SendAddress'],
                                                    attrs['ArriveProvinceId'], attrs['ArriveCityId'],
                                                    attrs['ArriveAddress'], 0.0, 0.0)
+        else:
+            o_dict = my_utils.get_price_static(attrs['CarId'], 1,
+                                               attrs['SendProvinceId'], attrs['SendCityId'], attrs['SendAddress'],
+                                               attrs['ArriveProvinceId'], attrs['ArriveCityId'],
+                                               attrs['ArriveAddress'], 0.0, 0.0)
 
         if not o_dict.data.get('Success'):
             raise serializers.ValidationError('获取公里数失败: '+ str(o_dict))
@@ -354,7 +360,8 @@ class CityWideSerializer(BaseGoodsSerializer):
         # print('*'*20,o_dict.data, km, freight)
         attrs['KM'] = km
         # 运费
-        attrs['GoodsFreight'] = freight
+        if 'CarId' in keys:
+            attrs['GoodsFreight'] = freight
         # 坐标
         attrs['SendX'] = o_dict.data.get('Data')[0].get('send_x')
         attrs['SendY'] = o_dict.data.get('Data')[0].get('send_y')
@@ -435,14 +442,23 @@ class OnePieceSerializer(CityWideSerializer):
         attrs_new = super().validate(attrs)
         attrs_new['GoodsType'] = GoodsEnum.ONE_PIECE.value
         # 公里数
-        o_dict = my_utils.get_price_static(attrs['CarId'], 1,
+        if 'CarId' not in attrs.keys():
+            o_dict = my_utils.get_price_static(1, 1,
                                                    attrs['SendProvinceId'], attrs['SendCityId'], attrs['SendAddress'],
                                                    attrs['ArriveProvinceId'], attrs['ArriveCityId'],
-                                                   attrs['ArriveAddress'], attrs['Weight'], attrs['Volume'])
+                                                   attrs['ArriveAddress'], 0.0, 0.0)
+        else:
+            o_dict = my_utils.get_price_static(attrs['CarId'], 1,
+                                               attrs['SendProvinceId'], attrs['SendCityId'], attrs['SendAddress'],
+                                               attrs['ArriveProvinceId'], attrs['ArriveCityId'],
+                                               attrs['ArriveAddress'], 0.0, 0.0)
 
-        attrs['KM'] = float(o_dict.get('Data')[0].get('distance_value'))/1000
+        if not o_dict.data.get('Success'):
+            raise serializers.ValidationError('获取公里数失败: '+ str(o_dict))
+        attrs['KM'] = float(o_dict.data.get('Data')[0].get('distance_value'))/1000
         # 运费
-        attrs['GoodsFreight'] = o_dict.get('Data')[0].get('price')
+        if 'CarId' in attrs.keys():
+            attrs['GoodsFreight'] = o_dict.data.get('Data')[0].get('price')
         return attrs_new
 
     class Meta:
@@ -463,7 +479,7 @@ class TheVehicleSerializer(OnePieceSerializer):
 
     CarId = serializers.IntegerField(required=False, read_only=True, help_text='车辆类型ID', label='车辆类型ID', default=0)
     CarName = serializers.CharField(required=False, help_text='车辆类型名称，非必填', label='车辆类型', default='')
-    GoodsImg = serializers.ImageField(write_only=True, required=False, help_text='货物图片', label='货物图片')
+    # GoodsImg = serializers.ImageField(write_only=True, required=False, help_text='货物图片', label='货物图片')
     GoodsFreight = serializers.FloatField(help_text='运费', label='运费',
                                           error_messages={"blank": BaseGoodsSerializer.RET_STR + "运费",
                                                           "required": BaseGoodsSerializer.RET_STR + "运费"})
@@ -473,17 +489,18 @@ class TheVehicleSerializer(OnePieceSerializer):
                                                     "required": BaseGoodsSerializer.RET_STR + "体积"})
 
     def validate(self, attrs):
+        price = attrs['GoodsFreight']
         attrs_new = super().validate(attrs)
         attrs_new['GoodsType'] = GoodsEnum.THE_VEHICLE.value
         # 公里数
 
         # 运费
+        attrs_new['GoodsFreight'] = price
         return attrs_new
 
     class Meta:
         model = BaseGoodsSerializer.Meta.model
-        fields = OnePieceSerializer.Meta.fields + ('GoodsImg',  # 货物图片
-                                                   )
+        fields = OnePieceSerializer.Meta.fields
 
 
 class ReceiveSerializer(serializers.ModelSerializer):
@@ -651,7 +668,7 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class CommentImageSerializer(BaseSerializer):
+class CommentImageSerializer(MyBaseSerializer):
     """
     评论图片上传
     """
@@ -674,3 +691,40 @@ class CommentImageSerializer(BaseSerializer):
     class Meta:
         model = GoodsCommentImageInfo
         fields = '__all__'
+
+
+class GoodsImgSerializer(MyBaseSerializer):
+    """
+    订单图片
+    """
+    GoodsId = serializers.CharField(help_text='订单ID', label='订单ID',
+                                    error_messages={"blank": "订单ID为必填", "required": "订单ID为必填"})
+    ImageUrl = serializers.ImageField(help_text='图片', label='图片',
+                                      error_messages={"blank": "图片为必填", "required": "图片为必填"})
+    IsCover = serializers.IntegerField(required=False, help_text='是否封面', label='是否封面')
+
+    def validate_GoodsId(self, GoodsId):
+        goods_info = GoodsInfo.objects.filter(GoodsId=GoodsId).first()
+        if not goods_info: raise serializers.ValidationError('订单ID异常')
+        return GoodsId
+
+    def validate(self, attrs):
+        if 'IsCover' in attrs.keys() and not attrs['IsCover']: attrs['IsCover'] = 0
+        attrs['AddTime'] = datetime.now()
+        attrs['LastEditTime'] = datetime.now()
+        return attrs
+
+    def create(self, validated_data):
+        goods_info = GoodsInfo.objects.filter(GoodsId=validated_data['GoodsId']).first()
+        save_path = my_utils.upload_img(validated_data, 'ImageUrl', 'goods/' + goods_info.GoodsNo + '/')
+        if save_path and not isinstance(save_path, str):
+            raise serializers.ValidationError('图片保存失败')
+
+        validated_data['ImageUrl'] = save_path
+        goods_img_info = GoodsImageInfo.objects.create(**validated_data)
+        return goods_img_info
+
+    class Meta:
+        model = GoodsImageInfo
+        fields = '__all__'
+

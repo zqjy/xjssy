@@ -2,7 +2,7 @@ from rest_framework import filters as drf_filter
 from django_filters import rest_framework as filters
 from django.db.models import Q
 
-from apps.goods.models import GoodsInfo, GoodsCommentImageInfo
+from apps.goods.models import GoodsInfo, GoodsCommentImageInfo, GoodsImageInfo
 from apps.car.models import Carinfo
 
 
@@ -70,11 +70,22 @@ class GoodsFilter(filters.FilterSet):
 
 
 class CommentFilter(filters.FilterSet):
-    GoodsId = filters.NumberFilter(method='goods_id_filter', label='顾客ID', help_text='发布信息顾客ID')
+    GoodsId = filters.NumberFilter(method='goods_id_filter', label='货单ID', help_text='货单ID')
 
     def goods_id_filter(self, queryset, name, value):
         return queryset.filter(GoodsId=value)
 
     class Meta:
         model = GoodsCommentImageInfo
+        fields = ['GoodsId']
+
+
+class GoodsImgFilter(filters.FilterSet):
+    GoodsId = filters.NumberFilter(method='goods_id_filter', label='货单ID', help_text='货单ID')
+
+    def goods_id_filter(self, queryset, name, value):
+        return queryset.filter(GoodsId=value)
+
+    class Meta:
+        model = GoodsImageInfo
         fields = ['GoodsId']

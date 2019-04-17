@@ -8,7 +8,7 @@ from enum import Enum
 
 from apps.customer.models import CustomerInfo, CustomerAccountInfo, CustomerAccountDetailsInfo
 from utils import my_utils
-from db_base.base_serializers import BaseSerializer
+from db_base.base_serializers import MyBaseSerializer
 from XJSExpress.settings import REGEX_MOBILE
 
 
@@ -21,7 +21,7 @@ class CustomerEnum(Enum):
     WOMAN = 2  # 女
 
 
-class BaseCustomerSerializer(BaseSerializer):
+class BaseCustomerSerializer(MyBaseSerializer):
     CustomerName = serializers.CharField(read_only=True, help_text='顾客名称', label='顾客名称')
     Gender = serializers.IntegerField(read_only=True, help_text='性别', label='性别')
     DateOfBirth = serializers.DateField(read_only=True, help_text='生日', label='生日')

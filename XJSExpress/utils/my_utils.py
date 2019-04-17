@@ -197,9 +197,13 @@ def upload_img(serializer, file_name, path):
     :param path:
     :return:
     """
-    data_keys = serializer.validated_data.keys()
+    try:
+        data_keys = serializer.validated_data.keys()
+        serializer = serializer.validated_data
+    except:
+        data_keys = serializer.keys()
     if file_name in data_keys:
-        img_file = serializer.validated_data[file_name]
+        img_file = serializer[file_name]
     else:
         img_file = None
 
@@ -226,5 +230,5 @@ def upload_img(serializer, file_name, path):
             return Response(my_reponse.get_response_error_dict(msg='图片提交失败，请稍后再试'),
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return re.sub('media/', '', save_path)
-    return None
+    return ''
 

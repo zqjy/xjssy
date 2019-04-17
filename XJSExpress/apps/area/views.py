@@ -35,6 +35,7 @@ class AreaListViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets
 
     # 重写retrieve方法
     def retrieve(self, request, *args, **kwargs):
+        print('*'*10)
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return Response(my_reponse.get_response_dict(serializer.data))
@@ -64,6 +65,8 @@ class AreaListViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets
 
     def get_queryset(self):
         if self.action=='retrieve_by_name':
+            return Areainfo.objects.all()
+        if self.action=='retrieve':
             return Areainfo.objects.all()
         else:
             return Areainfo.objects.filter(ParentId=0)

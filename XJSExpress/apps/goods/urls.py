@@ -1,11 +1,12 @@
 from django.conf.urls import url, include
 from rest_framework.routers import DefaultRouter
 
-from apps.goods.views import GoodsInfoViewSet, PriceInfoViewSet, CommentViewSet
+from apps.goods.views import GoodsInfoViewSet, PriceInfoViewSet, CommentViewSet, GoodsImageViewSet
 
 router = DefaultRouter()
 router.register(r'^info', GoodsInfoViewSet, base_name='info')
 router.register(r'^comment_info', CommentViewSet, base_name='comment_info')
+router.register(r'^goods_img_info', GoodsImageViewSet, base_name='goods_img_info')
 get_order = GoodsInfoViewSet.as_view({'get': 'get_order'})
 city_wide_create = GoodsInfoViewSet.as_view({"post": 'city_wide_create'})
 one_pice_create = GoodsInfoViewSet.as_view({"post": 'one_pice_create'})
