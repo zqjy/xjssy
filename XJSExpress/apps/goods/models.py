@@ -48,11 +48,11 @@ class GoodsInfo(BaseModel):
     Volume = models.FloatField(db_column='Volume', blank=True, null=True, verbose_name='体积')
     KM = models.FloatField(db_column='KM', blank=True, null=True, verbose_name='距离')
     IsCheck = models.IntegerField(db_column='IsCheck', blank=True, null=True, verbose_name='是否入账')
-    C_IsComment = models.IntegerField(db_column='C_IsComment', blank=True, null=True, verbose_name='客户是否允许评论')
+    C_IsComment = models.IntegerField(db_column='C_IsComment', blank=True, null=True, verbose_name='客户是否评论')
     C_CommentContent = models.CharField(db_column='C_CommentContent', max_length=200, blank=True, null=True,
                                         verbose_name='客户评论内容')
     C_CommentScore = models.IntegerField(db_column='C_CommentScore', blank=True, null=True, verbose_name='客户评分')
-    D_IsComment = models.IntegerField(db_column='D_IsComment', blank=True, null=True, verbose_name='司机是否允许评论')
+    D_IsComment = models.IntegerField(db_column='D_IsComment', blank=True, null=True, verbose_name='司机是否评论')
     D_CommentContent = models.CharField(db_column='D_CommentContent', max_length=200, blank=True, null=True,
                                         verbose_name='司机评论内容')
     D_CommentScore = models.IntegerField(db_column='D_CommentScore', blank=True, null=True, verbose_name='司机评分')
@@ -87,10 +87,10 @@ class GoodsImageInfo(BaseModel):
 
 
 class GoodsCommentImageInfo(BaseModel):
-    GoodsCommentImageId = models.AutoField(db_column='GoodsCommentImageId', primary_key=True, verbose_name='')
-    Type = models.IntegerField(db_column='Type', blank=True, null=True, verbose_name='')
-    GoodsId = models.IntegerField(db_column='GoodsId', blank=True, null=True, verbose_name='')
-    ImageUrl = models.CharField(db_column='ImageUrl', max_length=100, blank=True, null=True, verbose_name='')
+    GoodsCommentImageId = models.AutoField(db_column='GoodsCommentImageId', primary_key=True, verbose_name='评论图片ID')
+    Type = models.IntegerField(db_column='Type', blank=True, null=True, verbose_name='评论类型')
+    GoodsId = models.IntegerField(db_column='GoodsId', blank=True, null=True, verbose_name='货单ID')
+    ImageUrl = models.ImageField(db_column='ImageUrl', max_length=100, blank=True, null=True, verbose_name='图片路径')
     IsCheck = models.IntegerField(db_column='IsCheck', blank=True, null=True, verbose_name='')
 
     class Meta:

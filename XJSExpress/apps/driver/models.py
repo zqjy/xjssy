@@ -4,7 +4,7 @@ from db_base.base_model import BaseModel
 
 
 class DriverInfo(BaseModel):
-    DriverId = models.IntegerField(db_column='DriverId', primary_key=True, verbose_name='司机ID')
+    DriverId = models.AutoField(db_column='DriverId', primary_key=True, verbose_name='司机ID')
     DriverName = models.CharField(db_column='DriverName', max_length=20, blank=True, null=True, verbose_name='司机名字')
     Gender = models.IntegerField(db_column='Gender', blank=True, null=True, verbose_name='性别')
     DateOfBirth = models.DateField(db_column='DateOfBirth', blank=True, null=True, verbose_name='生日')
@@ -41,7 +41,7 @@ class DriverInfo(BaseModel):
 
 
 class DriverAccountDetailsInfo(BaseModel):
-    DriverAccountDetailsId = models.IntegerField(db_column='DriverAccountDetailsId', primary_key=True,
+    DriverAccountDetailsId = models.AutoField(db_column='DriverAccountDetailsId', primary_key=True,
                                                  verbose_name='账户详情ID')
     DriverAccountDetailsType = models.IntegerField(db_column='DriverAccountDetailsType', blank=True, null=True,
                                                    verbose_name='账户详情类型')
@@ -67,7 +67,7 @@ class DriverAccountDetailsInfo(BaseModel):
 
 
 class DriverAccountInfo(BaseModel):
-    DriverAccountId = models.IntegerField(db_column='DriverAccountId', primary_key=True, verbose_name='司机账户ID')
+    DriverAccountId = models.AutoField(db_column='DriverAccountId', primary_key=True, verbose_name='司机账户ID')
     DriverId = models.IntegerField(db_column='DriverId', blank=True, null=True, verbose_name='司机ID')
     Balance = models.FloatField(db_column='Balance', blank=True, null=True, verbose_name='余额')
     Arrival = models.FloatField(db_column='Arrival', blank=True, null=True, verbose_name='到账')
@@ -83,7 +83,7 @@ class DriverAccountInfo(BaseModel):
 
 
 class DriverGoodsInfo(BaseModel):
-    DriverGoodsId = models.IntegerField(db_column='DriverGoodsId', primary_key=True, verbose_name='司机货物ID')
+    DriverGoodsId = models.AutoField(db_column='DriverGoodsId', primary_key=True, verbose_name='司机货物ID')
     DriverId = models.IntegerField(db_column='DriverId', blank=True, null=True, verbose_name='司机ID')
     GoodsId = models.IntegerField(db_column='GoodsId', blank=True, null=True, verbose_name='货物ID')
     DriverGoodsType = models.IntegerField(db_column='DriverGoodsType', blank=True, null=True, verbose_name='司机货物类别')
@@ -99,7 +99,7 @@ class DriverGoodsInfo(BaseModel):
 
 
 class DriverSpecialLineInfo(models.Model):
-    DriverSpecialLineId = models.IntegerField(db_column='DriverSpecialLineId', primary_key=True, verbose_name='司机专线ID')
+    DriverSpecialLineId = models.AutoField(db_column='DriverSpecialLineId', primary_key=True, verbose_name='司机专线ID')
     SendProvinceId = models.IntegerField(db_column='SendProvinceId', blank=True, null=True, verbose_name='')
     SendCityId = models.IntegerField(db_column='SendCityId', blank=True, null=True, verbose_name='')
     ArriveProvinceId = models.IntegerField(db_column='ArriveProvinceId', blank=True, null=True, verbose_name='')
@@ -115,7 +115,7 @@ class DriverSpecialLineInfo(models.Model):
 
 
 class CodeInfo(models.Model):
-    CodeId = models.IntegerField(db_column='CodeId', primary_key=True, verbose_name='验证码ID')
+    CodeId = models.AutoField(db_column='CodeId', primary_key=True, verbose_name='验证码ID')
     Mobile = models.CharField(db_column='Mobile', max_length=15, blank=True, null=True, verbose_name='电话号码')
     CodeName = models.CharField(db_column='CodeName', max_length=6, blank=True, null=True, verbose_name='验证码')
     IsRead = models.IntegerField(db_column='IsRead', blank=True, null=True, verbose_name='是否已读')

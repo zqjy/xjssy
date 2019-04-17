@@ -6,13 +6,14 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from enum import Enum
 
-from apps.goods.models import GoodsInfo
+from apps.goods.models import GoodsInfo, GoodsCommentImageInfo
 from apps.area.models import Areainfo
 from apps.car.models import Carinfo
 from apps.driver.models import LoginTokenInfo
 from utils import my_utils
 from XJSExpress import settings
 from db_base.base_model import BaseEnum
+from db_base.base_serializers import BaseSerializer
 
 
 class GoodsEnum(Enum):
@@ -27,9 +28,27 @@ class GoodsEnum(Enum):
     NO_TRANSPORT = 1  # 未运输
     IN_TRANSPORT = 2  # 运输中
     YES_TRANSPORT = 3  # 已到达
+    # 货物是否提取
+    NO_EXTRACT = 0  # 未提取
+    YES_EXTRACT = 1  # 已提取
+    # 评级级别
+    GOOD = 1  # 好评
+    MIDDLE = 2  # 中评
+    BAD = 3  # 差评
+    # 评论图片状态
+    Customer = 1  # 顾客评论
+    Driver = 2  # 司机评论
+    # 订单状态
+    NORMAL = 0  # 正常
+    DEL = 1  # 删除
+    ILLEGAL = 2  # 违规
+    CANCEL = 3  # 取消
+    # 是否评价
+    YES_COMMENT = 1  # 已评论
+    NO_COMMENT = 0  # 未评论
 
 
-class BaseSerializer(serializers.ModelSerializer):
+class BaseGoodsSerializer(serializers.ModelSerializer):
     """
        货单信息基类
        """
@@ -105,18 +124,18 @@ class BaseSerializer(serializers.ModelSerializer):
         return GoodsType
 
     def validate_SendProvinceId(self, SendProvinceId):
-        ret = BaseSerializer.verify_all_area(provice_id=SendProvinceId, area_type='起始地')
+        ret = BaseGoodsSerializer.verify_all_area(provice_id=SendProvinceId, area_type='起始地')
         if not isinstance(ret, str): raise ret
         return SendProvinceId
 
     def validate_SendCityId(self, SendCityId):
-        ret = BaseSerializer.verify_all_area(provice_id=self.initial_data["SendProvinceId"], city_id=SendCityId,
+        ret = BaseGoodsSerializer.verify_all_area(provice_id=self.initial_data["SendProvinceId"], city_id=SendCityId,
                                              area_type='起始地')
         if not isinstance(ret, str): raise ret
         return SendCityId
 
     def validate_SendDistricId(self, SendDistricId):
-        ret = BaseSerializer.verify_all_area(provice_id=self.initial_data["SendProvinceId"],
+        ret = BaseGoodsSerializer.verify_all_area(provice_id=self.initial_data["SendProvinceId"],
                                              city_id=self.initial_data["SendCityId"],
                                              distr_id=SendDistricId,
                                              area_type='起始地')
@@ -124,7 +143,7 @@ class BaseSerializer(serializers.ModelSerializer):
         return SendDistricId
 
     def validate_ArriveDistricId(self, ArriveDistricId):
-        ret = BaseSerializer.verify_all_area(provice_id=self.initial_data["SendProvinceId"],
+        ret = BaseGoodsSerializer.verify_all_area(provice_id=self.initial_data["SendProvinceId"],
                                              city_id=self.initial_data["SendCityId"],
                                              distr_id=ArriveDistricId,
                                              area_type='目的地')
@@ -144,17 +163,17 @@ class BaseSerializer(serializers.ModelSerializer):
         if provice_id \
                 and not city_id \
                 and not distr_id \
-                and not BaseSerializer.verify_area(provice_id, 0):
+                and not BaseGoodsSerializer.verify_area(provice_id, 0):
             raise serializers.ValidationError(area_type + "省份不合法")
         if provice_id \
                 and city_id \
                 and not distr_id \
-                and not BaseSerializer.verify_area(city_id, provice_id):
+                and not BaseGoodsSerializer.verify_area(city_id, provice_id):
             raise serializers.ValidationError(area_type + "城市不匹配")
         if provice_id \
                 and city_id \
                 and distr_id \
-                and not BaseSerializer.verify_area(distr_id, city_id):
+                and not BaseGoodsSerializer.verify_area(distr_id, city_id):
             raise serializers.ValidationError(area_type + "区县不匹配")
         if provice_id \
                 and not city_id \
@@ -193,7 +212,7 @@ class BaseSerializer(serializers.ModelSerializer):
                   )
 
 
-class GoodsInfoSerializer(BaseSerializer):
+class GoodsInfoSerializer(BaseGoodsSerializer):
     """
     货单信息基类
     """
@@ -245,26 +264,26 @@ class GoodsInfoSerializer(BaseSerializer):
         return data
 
 
-class CityWideSerializer(BaseSerializer):
+class CityWideSerializer(BaseGoodsSerializer):
     """
     同城货单
     """
     # RET_STR = '请输入'  # 错误信息开头部分
     GoodsType = serializers.IntegerField(read_only=True, help_text='货单类型', label='货单类型',
-                                         error_messages={"blank": BaseSerializer.RET_STR + "货单类型",
-                                                         "required": BaseSerializer.RET_STR + "货单类型"})
+                                         error_messages={"blank": BaseGoodsSerializer.RET_STR + "货单类型",
+                                                         "required": BaseGoodsSerializer.RET_STR + "货单类型"})
     SendAddress = serializers.CharField(help_text='起始地地址', label='起始地地址',
-                                        error_messages={"blank": BaseSerializer.RET_STR + "起始地地址",
-                                                        "required": BaseSerializer.RET_STR + "起始地地址"})
+                                        error_messages={"blank": BaseGoodsSerializer.RET_STR + "起始地地址",
+                                                        "required": BaseGoodsSerializer.RET_STR + "起始地地址"})
     ArriveAddress = serializers.CharField(help_text='目的地地址', label='目的地地址',
-                                          error_messages={"blank": BaseSerializer.RET_STR + "目的地地址",
-                                                          "required": BaseSerializer.RET_STR + "目的地地址"})
+                                          error_messages={"blank": BaseGoodsSerializer.RET_STR + "目的地地址",
+                                                          "required": BaseGoodsSerializer.RET_STR + "目的地地址"})
     PublishName = serializers.CharField(help_text='接收人姓名', label='姓名',
-                                        error_messages={"blank": BaseSerializer.RET_STR + "姓名",
-                                                        "required": BaseSerializer.RET_STR + "姓名"})
+                                        error_messages={"blank": BaseGoodsSerializer.RET_STR + "姓名",
+                                                        "required": BaseGoodsSerializer.RET_STR + "姓名"})
     PublishPhone = serializers.CharField(max_length=11, help_text='接收人电话', label='联系电话',
-                                         error_messages={"blank": BaseSerializer.RET_STR + "联系电话",
-                                                         "required": BaseSerializer.RET_STR + "联系电话"})
+                                         error_messages={"blank": BaseGoodsSerializer.RET_STR + "联系电话",
+                                                         "required": BaseGoodsSerializer.RET_STR + "联系电话"})
 
     # def to_representation(self, instance):
     #     data = super().to_representation(instance)
@@ -344,8 +363,8 @@ class CityWideSerializer(BaseSerializer):
         return attrs
 
     class Meta:
-        model = BaseSerializer.Meta.model
-        fields = BaseSerializer.Meta.fields + ('PublishPhone',  # 接收人电话
+        model = BaseGoodsSerializer.Meta.model
+        fields = BaseGoodsSerializer.Meta.fields + ('PublishPhone',  # 接收人电话
                                                'SendAddress',  # 起始地详细地址
                                                'ArriveAddress',  # 目的地地址
                                                'AddTime',  # 添加时间
@@ -366,46 +385,46 @@ class OnePieceSerializer(CityWideSerializer):
     """
 
     SendAddress = serializers.CharField(help_text='起始地地址', label='货物地址',
-                                        error_messages={"blank": BaseSerializer.RET_STR + "货物地址",
-                                                        "required": BaseSerializer.RET_STR + "货物地址"})
+                                        error_messages={"blank": BaseGoodsSerializer.RET_STR + "货物地址",
+                                                        "required": BaseGoodsSerializer.RET_STR + "货物地址"})
     GoodsName = serializers.CharField(help_text='货物名称', label='货物名称',
-                                      error_messages={"blank": BaseSerializer.RET_STR + "货物名称",
-                                                      "required": BaseSerializer.RET_STR + "货物名称"})
+                                      error_messages={"blank": BaseGoodsSerializer.RET_STR + "货物名称",
+                                                      "required": BaseGoodsSerializer.RET_STR + "货物名称"})
     Weight = serializers.FloatField(help_text='重量(KG)', label='重量(KG)',
-                                    error_messages={"blank": BaseSerializer.RET_STR + "重量",
-                                                    "required": BaseSerializer.RET_STR + "重量"})
+                                    error_messages={"blank": BaseGoodsSerializer.RET_STR + "重量",
+                                                    "required": BaseGoodsSerializer.RET_STR + "重量"})
     Volume = serializers.FloatField(help_text='体积(方)', label='体积(方)',
-                                    error_messages={"blank": BaseSerializer.RET_STR + "体积",
-                                                    "required": BaseSerializer.RET_STR + "体积"})
+                                    error_messages={"blank": BaseGoodsSerializer.RET_STR + "体积",
+                                                    "required": BaseGoodsSerializer.RET_STR + "体积"})
     PublishRemark = serializers.CharField(required=False, help_text='备注', label='备注', default='',
-                                          error_messages={"blank": BaseSerializer.RET_STR + "备注",
-                                                          "required": BaseSerializer.RET_STR + "备注"})
+                                          error_messages={"blank": BaseGoodsSerializer.RET_STR + "备注",
+                                                          "required": BaseGoodsSerializer.RET_STR + "备注"})
     ArriveProvinceId = serializers.IntegerField(help_text='目的地省份ID', label='目的地省份',
-                                                error_messages={"blank": BaseSerializer.RET_STR + "目的地省份",
-                                                                "required": BaseSerializer.RET_STR + "起始地省份"})
+                                                error_messages={"blank": BaseGoodsSerializer.RET_STR + "目的地省份",
+                                                                "required": BaseGoodsSerializer.RET_STR + "起始地省份"})
     ArriveCityId = serializers.IntegerField(help_text='目的地城市ID', label='目的地城市',
-                                            error_messages={"blank": BaseSerializer.RET_STR + "目的地城市",
-                                                            "required": BaseSerializer.RET_STR + "目的地城市"})
+                                            error_messages={"blank": BaseGoodsSerializer.RET_STR + "目的地城市",
+                                                            "required": BaseGoodsSerializer.RET_STR + "目的地城市"})
     ArriveAddress = serializers.CharField(help_text='目的地地址', label='卸货地址',
-                                          error_messages={"blank": BaseSerializer.RET_STR + "卸货地址",
-                                                          "required": BaseSerializer.RET_STR + "卸货地址"})
+                                          error_messages={"blank": BaseGoodsSerializer.RET_STR + "卸货地址",
+                                                          "required": BaseGoodsSerializer.RET_STR + "卸货地址"})
     UnloadingTime = serializers.DateField(help_text='卸货时间', label='卸货时间',
-                                          error_messages={"blank": BaseSerializer.RET_STR + "卸货时间",
-                                                          "required": BaseSerializer.RET_STR + "卸货时间"})
+                                          error_messages={"blank": BaseGoodsSerializer.RET_STR + "卸货时间",
+                                                          "required": BaseGoodsSerializer.RET_STR + "卸货时间"})
 
     def validate_ArriveProvinceId(self, ArriveProvinceId):
-        ret = BaseSerializer.verify_all_area(provice_id=ArriveProvinceId, area_type='目的地')
+        ret = BaseGoodsSerializer.verify_all_area(provice_id=ArriveProvinceId, area_type='目的地')
         if not isinstance(ret, str): raise ret
         return ArriveProvinceId
 
     def validate_ArriveCityId(self, ArriveCityId):
-        ret = BaseSerializer.verify_all_area(provice_id=self.initial_data["ArriveProvinceId"], city_id=ArriveCityId,
+        ret = BaseGoodsSerializer.verify_all_area(provice_id=self.initial_data["ArriveProvinceId"], city_id=ArriveCityId,
                                              area_type='目的地')
         if not isinstance(ret, str): raise ret
         return ArriveCityId
 
     def validate_ArriveDistricId(self, ArriveDistricId):
-        ret = BaseSerializer.verify_all_area(provice_id=self.initial_data["ArriveProvinceId"],
+        ret = BaseGoodsSerializer.verify_all_area(provice_id=self.initial_data["ArriveProvinceId"],
                                              city_id=self.initial_data["ArriveCityId"],
                                              distr_id=ArriveDistricId,
                                              area_type='目的地')
@@ -427,7 +446,7 @@ class OnePieceSerializer(CityWideSerializer):
         return attrs_new
 
     class Meta:
-        model = BaseSerializer.Meta.model
+        model = BaseGoodsSerializer.Meta.model
         fields = CityWideSerializer.Meta.fields + ('GoodsName',  # 货物名称
                                                    'Weight',  # 重量
                                                    'Volume',  # 体积
@@ -446,12 +465,12 @@ class TheVehicleSerializer(OnePieceSerializer):
     CarName = serializers.CharField(required=False, help_text='车辆类型名称，非必填', label='车辆类型', default='')
     GoodsImg = serializers.ImageField(write_only=True, required=False, help_text='货物图片', label='货物图片')
     GoodsFreight = serializers.FloatField(help_text='运费', label='运费',
-                                          error_messages={"blank": BaseSerializer.RET_STR + "运费",
-                                                          "required": BaseSerializer.RET_STR + "运费"})
+                                          error_messages={"blank": BaseGoodsSerializer.RET_STR + "运费",
+                                                          "required": BaseGoodsSerializer.RET_STR + "运费"})
     KM = serializers.FloatField(required=False, read_only=True, help_text='线路距离', label='公里')
     Volume = serializers.FloatField(required=False, read_only=True, help_text='体积(方)', label='体积(方)',
-                                    error_messages={"blank": BaseSerializer.RET_STR + "体积",
-                                                    "required": BaseSerializer.RET_STR + "体积"})
+                                    error_messages={"blank": BaseGoodsSerializer.RET_STR + "体积",
+                                                    "required": BaseGoodsSerializer.RET_STR + "体积"})
 
     def validate(self, attrs):
         attrs_new = super().validate(attrs)
@@ -462,15 +481,15 @@ class TheVehicleSerializer(OnePieceSerializer):
         return attrs_new
 
     class Meta:
-        model = BaseSerializer.Meta.model
+        model = BaseGoodsSerializer.Meta.model
         fields = OnePieceSerializer.Meta.fields + ('GoodsImg',  # 货物图片
                                                    )
 
 
 class ReceiveSerializer(serializers.ModelSerializer):
     tokenId = serializers.CharField(write_only=True, help_text='token', label='token',
-                                         error_messages={"blank": BaseSerializer.RET_STR + "token",
-                                                         "required": BaseSerializer.RET_STR + "token"})
+                                         error_messages={"blank": BaseGoodsSerializer.RET_STR + "token",
+                                                         "required": BaseGoodsSerializer.RET_STR + "token"})
 
     UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间')
     MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间')
@@ -498,6 +517,14 @@ class ReceiveSerializer(serializers.ModelSerializer):
                   'UnloadingTime', 'PublishDate', 'LoadTime', 'Grabbing', 'AddTime')
 
 
+class AdoptSerializer(ReceiveSerializer):
+    def validate(self, attrs):
+        attrs["GoodsStatus"] = GoodsEnum.IN_TRANSPORT.value
+        attrs["LastEditTime"] = datetime.now()
+        del attrs['tokenId']
+        return attrs
+
+
 class FinishSerializer(serializers.ModelSerializer):
     UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间')
     MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间')
@@ -518,3 +545,132 @@ class FinishSerializer(serializers.ModelSerializer):
         model = GoodsInfo
         fields = ('DriverId', 'MakeToOrderDate', 'LastEditTime',
                   'UnloadingTime', 'PublishDate', 'LoadTime', 'Grabbing', 'AddTime')
+
+
+class DriverCommentSerializer(serializers.ModelSerializer):
+    """
+    司机评价订单
+    """
+    tokenId = serializers.CharField(write_only=True, help_text='token', label='token',
+                                    error_messages={"blank": BaseGoodsSerializer.RET_STR + "token",
+                                                    "required": BaseGoodsSerializer.RET_STR + "token"})
+    D_CommentContent = serializers.CharField(help_text='司机评论内容', label='司机评论内容',
+                                             error_messages={"blank": BaseGoodsSerializer.RET_STR + "评论内容",
+                                                             "required": BaseGoodsSerializer.RET_STR + "评论内容"})
+    D_CommentScore = serializers.IntegerField(help_text='司机评分', label='司机评分',
+                                              error_messages={"blank": BaseGoodsSerializer.RET_STR + "司机评分",
+                                                              "required": BaseGoodsSerializer.RET_STR + "司机评分"})
+    D_IsComment = serializers.IntegerField(read_only=True, help_text='司机是否评论', label='司机是否评论')
+
+
+
+    UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间')
+    MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间')
+    PublishDate = serializers.DateTimeField(read_only=True, help_text='发布时间', label='发布时间')
+    LastEditTime = serializers.DateTimeField(read_only=True, help_text='最后修改时间', label='最后修改时间')
+    LoadTime = serializers.DateTimeField(read_only=True, help_text='装货时间', label='装货时间')
+    Grabbing = serializers.DateTimeField(read_only=True, help_text='时间', label='时间')
+    AddTime = serializers.DateTimeField(read_only=True, help_text='添加时间', label='添加时间')
+
+    def validate_tokenId(self, tokenId):
+        token_info = LoginTokenInfo.objects.filter(LoginToken=tokenId).first()
+        if not token_info: raise serializers.ValidationError("无权限")
+        return token_info
+
+    def validate_D_CommentScore(self, D_CommentScore):
+        if not D_CommentScore in [1, 2, 3]: raise serializers.ValidationError('评分错误')
+        return D_CommentScore
+
+    def validate(self, attrs):
+        attrs['D_IsComment'] = GoodsEnum.YES_COMMENT.value
+        attrs["LastEditTime"] = datetime.now()
+        del attrs['tokenId']
+        return attrs
+
+    class Meta:
+        model = GoodsInfo
+        fields = ('tokenId', 'MakeToOrderDate', 'LastEditTime',
+                  'UnloadingTime', 'PublishDate', 'LoadTime', 'Grabbing', 'AddTime',
+                  'D_IsComment', 'D_CommentContent', 'D_CommentScore')
+
+
+class CustomerCommentSerializer(serializers.ModelSerializer):
+    """
+    顾客评价订单
+    """
+    tokenId = serializers.CharField(write_only=True, help_text='token', label='token',
+                                    error_messages={"blank": BaseGoodsSerializer.RET_STR + "token",
+                                                    "required": BaseGoodsSerializer.RET_STR + "token"})
+    C_CommentContent = serializers.CharField(help_text='顾客评论内容', label='顾客评论内容',
+                                             error_messages={"blank": BaseGoodsSerializer.RET_STR + "评论内容",
+                                                             "required": BaseGoodsSerializer.RET_STR + "评论内容"})
+    C_CommentScore = serializers.IntegerField(help_text='顾客评分', label='顾客评分',
+                                              error_messages={"blank": BaseGoodsSerializer.RET_STR + "顾客评分",
+                                                              "required": BaseGoodsSerializer.RET_STR + "顾客评分"})
+    C_IsComment = serializers.IntegerField(read_only=True, help_text='顾客是否评论', label='顾客是否评论')
+
+
+
+    UnloadingTime = serializers.DateTimeField(read_only=True, help_text='卸货时间', label='卸货时间')
+    MakeToOrderDate = serializers.DateTimeField(read_only=True, help_text='接单时间', label='接单时间')
+    PublishDate = serializers.DateTimeField(read_only=True, help_text='发布时间', label='发布时间')
+    LastEditTime = serializers.DateTimeField(read_only=True, help_text='最后修改时间', label='最后修改时间')
+    LoadTime = serializers.DateTimeField(read_only=True, help_text='装货时间', label='装货时间')
+    Grabbing = serializers.DateTimeField(read_only=True, help_text='时间', label='时间')
+    AddTime = serializers.DateTimeField(read_only=True, help_text='添加时间', label='添加时间')
+
+    def validate_tokenId(self, tokenId):
+        token_info = LoginTokenInfo.objects.filter(LoginToken=tokenId).first()
+        # if not token_info: raise serializers.ValidationError("无权限")
+        return token_info
+
+    def validate_C_CommentScore(self, C_CommentScore):
+        if not C_CommentScore in [1, 2, 3]: raise serializers.ValidationError('评分错误')
+        return C_CommentScore
+
+    def validate(self, attrs):
+        attrs['C_IsComment'] = GoodsEnum.YES_COMMENT.value
+        attrs["LastEditTime"] = datetime.now()
+        del attrs['tokenId']
+        return attrs
+
+    class Meta:
+        model = GoodsInfo
+        fields = ('tokenId', 'MakeToOrderDate', 'LastEditTime',
+                  'UnloadingTime', 'PublishDate', 'LoadTime', 'Grabbing', 'AddTime',
+                  'C_IsComment', 'C_CommentContent', 'C_CommentScore')
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    """
+    评价订单
+    """
+
+    class Meta:
+        model = GoodsInfo
+        fields = '__all__'
+
+
+class CommentImageSerializer(BaseSerializer):
+    """
+    评论图片上传
+    """
+    Type = serializers.IntegerField(help_text='评论类型', label='评论类型')
+    GoodsId = serializers.IntegerField(help_text='货单ID', label='货单ID')
+    ImageUrl = serializers.ImageField(required=False, help_text='图片', label='图片')
+    IsCheck = serializers.IntegerField(read_only=True, help_text='是否审核', label='是否审核')
+
+    def validate_Type(self, Type):
+        if not Type in [1, 2]:
+            raise serializers.ValidationError("评论类型错误")
+        return Type
+
+    def validate_GoodsId(self, GoodsId):
+        goods_info = GoodsInfo.objects.filter(GoodsId=GoodsId).first()
+        if not goods_info:
+            raise serializers.ValidationError("订单ID错误")
+        return GoodsId
+
+    class Meta:
+        model = GoodsCommentImageInfo
+        fields = '__all__'

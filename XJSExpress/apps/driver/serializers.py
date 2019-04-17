@@ -446,3 +446,4 @@ class DriverAccountInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = DriverAccountInfo
         fields = '__all__'
+

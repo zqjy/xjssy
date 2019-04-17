@@ -34,3 +34,5 @@ class CustomerInfoViewSet(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, vi
             return CustomerInfoSerializer
         elif self.action == 'update':
             return CustomerUpdateSerializer
+        else:
+            return CustomerInfoSerializer

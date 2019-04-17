@@ -12,9 +12,11 @@ from django.db import transaction
 
 from apps.goods.models import GoodsInfo, GoodsImageInfo, GoodsCommentImageInfo, KmPriceInfo
 from apps.goods.serializers import GoodsInfoSerializer, CityWideSerializer, OnePieceSerializer, TheVehicleSerializer, \
-    ReceiveSerializer, FinishSerializer
-from apps.goods.filters import GoodsFilter
-from apps.driver.models import DriverInfo
+    ReceiveSerializer, FinishSerializer, AdoptSerializer, GoodsEnum, DriverCommentSerializer, CommentImageSerializer, \
+    CustomerCommentSerializer, CommentSerializer
+from apps.goods.filters import GoodsFilter, CommentFilter
+from apps.driver.models import DriverInfo, DriverAccountInfo, DriverGoodsInfo
+from apps.customer.models import CustomerInfo
 from apps.area.views import AreaListViewSet
 from utils import my_reponse, my_utils, access_authority
 from XJSExpress import settings
@@ -63,6 +65,8 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     全国整单添加
     get_order:
     司机获取个人订单
+    comment_list:
+    获取评价信息
     """
     pagination_class = GoodsPagination  # 指定自定义分页类
     filter_backends = (DjangoFilterBackend,)  # 设置过滤
@@ -70,6 +74,15 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
 
     # 设置了分页 list不返回结果
     def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(my_reponse.get_response_dict(serializer.data), status=status.HTTP_200_OK)
+
+    def comment_list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -147,6 +160,7 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     @access_authority.access_authority
+    @transaction.atomic
     def receive_goods(self, request, goods_id, *args, **kwargs):
         """
         接单
@@ -157,7 +171,8 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
                             , status=status.HTTP_400_BAD_REQUEST)
         goods_info = GoodsInfo.objects.filter(GoodsId=goods_id).first()
         if goods_info.MakeToOrderDate > goods_info.PublishDate:
-            return Response(my_reponse.get_response_error_dict(msg='货单已被接，请选择其他货单'), status=status.HTTP_400_BAD_REQUEST)
+            return Response(my_reponse.get_response_error_dict(msg='货单已被接，请选择其他货单'),
+                            status=status.HTTP_400_BAD_REQUEST)
         if not goods_info:
             return Response(my_reponse.get_response_error_dict(msg='货单异常'), status=status.HTTP_400_BAD_REQUEST)
         partial = kwargs.pop('partial', False)
@@ -165,9 +180,50 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        # 创建司机订单数据
+        driver_goods = DriverGoodsInfo.objects.filter(DriverId=driver_info.DriverI, GoodsId=goods_id).first()
+        if not driver_goods:
+            driver_goods = DriverGoodsInfo.objects.create(DriverId=driver_info.DriverId, GoodsId=goods_id,
+                                                          DriverGoodsType=goods_info.GoodsType,
+                                                          IsExtract=GoodsEnum.NO_EXTRACT,
+                                                          AddTime=datetime.now(), LastEditTime=datetime.now())
+        else:
+            driver_goods.DriverGoodsType = goods_info.GoodsType
+            driver_goods.IsExtract = GoodsEnum.NO_EXTRACT
+            driver_goods.LastEditTime = datetime.now()
+            driver_goods.save()
 
         return Response(my_reponse.get_response_dict('', msg='接单成功'), status=status.HTTP_201_CREATED)
 
+    @access_authority.access_authority
+    @transaction.atomic
+    def adopt_goods(self, request, goods_id, *args, **kwargs):
+        """
+        司机确认取到货物
+        """
+        driver_info = DriverInfo.objects.filter(DriverId=request.token_info.DriverId).first()
+        goods_info = GoodsInfo.objects.filter(GoodsId=goods_id).first()
+        if goods_info.MakeToOrderDate < goods_info.PublishDate:
+            return Response(my_reponse.get_response_error_dict(msg='货单没有被接，不能完成'), status=status.HTTP_400_BAD_REQUEST)
+        if not goods_info:
+            return Response(my_reponse.get_response_error_dict(msg='货单异常'), status=status.HTTP_400_BAD_REQUEST)
+
+        partial = kwargs.pop('partial', False)
+        instance = goods_info
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        # 修改司机货单表
+        driver_goods = DriverGoodsInfo.objects.filter(DriverId=driver_info.DriverI, GoodsId=goods_id).first()
+        if not driver_goods:
+            transaction.rollback()
+            return Response(my_reponse.get_response_error_dict(msg='司机货单数据异常'), status=status.HTTP_400_BAD_REQUEST)
+        driver_goods.IsExtract = GoodsEnum.YES_EXTRACT
+        driver_goods.LastEditTime = datetime.now()
+        driver_goods.save()
+        return Response(my_reponse.get_response_dict('', msg='获取确认接收'), status=status.HTTP_201_CREATED)
+
+    @transaction.atomic
     def finish_goods(self, request, goods_id, *args, **kwargs):
         """
         完成订单
@@ -182,6 +238,53 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        # 更新顾客数据
+        customer_id = goods_info.CustomerId
+        customer_info = CustomerInfo.objects.filter(CustomerId=customer_id).first()
+        if not customer_info:
+            transaction.rollback()
+            return Response(my_reponse.get_response_error_dict(msg='货单没有对应的顾客'), status=status.HTTP_400_BAD_REQUEST)
+        # 交易数
+        customer_info.TradingNum = customer_info.TradingNum if customer_info.TradingNum else 0
+        customer_info.TradingNum += 1
+        # 运输中数
+        customer_info.InTransitNum = customer_info.InTransitNum if customer_info.InTransitNum else 1
+        customer_info.InTransitNum -= 1
+        # 运达数
+        customer_info.YesTransitNum = customer_info.YesTransitNum if customer_info.YesTransitNum else 0
+        customer_info.YesTransitNum += 1
+        # 积分
+        customer_info.Point = customer_info.Point if customer_info.Point else 0
+        price = goods_info.GoodsFreight
+        customer_info.Point += price / 10
+        # 保存
+        customer_info.save()
+
+        # 更新司机数据
+        driver_id = goods_info.DriverId
+        driver_info = DriverInfo.objects.filter(DriverId=driver_id).first()
+        if not driver_info:
+            transaction.rollback()
+            return Response(my_reponse.get_response_error_dict(msg='货单没有对应的司机'), status=status.HTTP_400_BAD_REQUEST)
+        # 运输中数
+        driver_info.InTransitNum = customer_info.InTransitNum if customer_info.InTransitNum else 1
+        driver_info.InTransitNum -= 1
+        # 运达数
+        driver_info.YesTransitNum = customer_info.YesTransitNum if customer_info.YesTransitNum else 0
+        driver_info.YesTransitNum += 1
+        # 接单次数
+        driver_info.OrderTakeNum = driver_info.OrderTakeNum if driver_info.OrderTakeNum else 0
+        driver_info.OrderTakeNum += 1
+        # 保存
+        driver_info.save()
+        # 更新司机账户信息
+        driver_account = DriverAccountInfo.objects.filter(DriverId=driver_id).first()
+        if not driver_account:
+            driver_account = DriverAccountInfo.objects.create(DriverId=driver_id, Balance=0.0, Arrival=0.0,
+                                                              NoArrival=0.0,
+                                                              LastEditTime=datetime.now(), AddTime=datetime.now())
+        driver_account.Balance = goods_info.GoodsFreight
+        driver_account.save()
 
         return Response(my_reponse.get_response_dict('', msg='货单完成'), status=status.HTTP_201_CREATED)
 
@@ -196,6 +299,10 @@ class GoodsInfoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
             return ReceiveSerializer
         elif self.action == 'finish_goods':
             return FinishSerializer
+        elif self.action == 'adopt_goods':
+            return AdoptSerializer
+        elif self.action == 'comment_list':
+            return CommentSerializer
         else:
             return GoodsInfoSerializer
 
@@ -227,3 +334,104 @@ class PriceInfoViewSet(viewsets.GenericViewSet):
         :return: 订单价格
         """
         return my_utils.get_price_static(car_id, type, sp_id, sc_id, s_addr, dp_id, dc_id, d_addr, weight, volume)
+
+
+class CommentViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    """
+    comment_img_upload：
+    评论图片保存
+
+    """
+    filter_backends = (DjangoFilterBackend,)  # 设置过滤
+    filter_class = CommentFilter
+    def list(self, request, *args, **kwargs):
+        res = super().list(request, *args, **kwargs)
+        return Response(my_reponse.get_response_dict(res.data), status=status.HTTP_200_OK)
+
+    def comment_img_upload(self, request):
+        serializer = self.get_serializer(data=request.data)
+        ret = serializer.is_valid(raise_exception=False)
+        if not ret: return Response(my_reponse.get_response_error_dict(data=serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+        Type = serializer.validated_data["Type"]
+        GoodsId = serializer.validated_data["GoodsId"]
+        goods_info = GoodsInfo.objects.get(GoodsId=GoodsId)
+        save_path = my_utils.upload_img(serializer, 'ImageUrl', 'goods/' + goods_info.GoodsNo + '/')
+        if save_path is None:
+            save_path = ''
+        elif isinstance(save_path, str):
+            pass
+        else:
+            return Response(my_reponse.get_response_error_dict(data=save_path.data), status=status.HTTP_504_GATEWAY_TIMEOUT)
+
+        GoodsCommentImageInfo.objects.create(Type=Type, GoodsId=GoodsId, ImageUrl=save_path,
+                                             AddTime=datetime.now(), LastEditTime=datetime.now())
+        serializer.data['ImageUrl'] = save_path
+        return Response(my_reponse.get_response_dict(serializer.data), status=status.HTTP_201_CREATED)
+
+    @access_authority.access_authority
+    @transaction.atomic
+    def driver_comment_goods(self, request, goods_id, *args, **kwargs):
+        """
+        货单评价
+        """
+        goods_info = GoodsInfo.objects.filter(GoodsId=goods_id).first()
+        if goods_info.GoodsStatus != GoodsEnum.YES_TRANSPORT.value:
+            return Response(my_reponse.get_response_error_dict(msg='当前货单不能评价'), status=status.HTTP_400_BAD_REQUEST)
+        if not goods_info:
+            return Response(my_reponse.get_response_error_dict(msg='货单异常'), status=status.HTTP_400_BAD_REQUEST)
+
+        if request.token_info.DriverId and request.token_info.DriverId == goods_info.DriverId:
+            partial = kwargs.pop('partial', False)
+            instance = goods_info
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            ret = serializer.is_valid(raise_exception=False)
+            if not ret: return Response(my_reponse.get_response_error_dict(msg='error', data=serializer.errors),
+                                        status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return Response(my_reponse.get_response_dict(), status=status.HTTP_201_CREATED)
+        else:
+            return Response(my_reponse.get_response_error_dict(msg='token异常或订单与司机不匹配'), status=status.HTTP_400_BAD_REQUEST)
+
+    @access_authority.access_authority
+    @transaction.atomic
+    def customer_comment_goods(self, request, goods_id, *args, **kwargs):
+        """
+        货单评价
+        """
+        goods_info = GoodsInfo.objects.filter(GoodsId=goods_id).first()
+        if goods_info.GoodsStatus != GoodsEnum.YES_TRANSPORT.value:
+            return Response(my_reponse.get_response_error_dict(msg='当前货单不能评价'), status=status.HTTP_400_BAD_REQUEST)
+        if not goods_info:
+            return Response(my_reponse.get_response_error_dict(msg='货单异常'), status=status.HTTP_400_BAD_REQUEST)
+
+        if request.token_info.CustomerId and request.token_info.CustomerId == goods_info.CustomerId:
+            partial = kwargs.pop('partial', False)
+            instance = goods_info
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            ret = serializer.is_valid(raise_exception=False)
+            if not ret: return Response(my_reponse.get_response_error_dict(msg='error', data=serializer.errors),
+                                        status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return Response(my_reponse.get_response_dict(), status=status.HTTP_201_CREATED)
+        else:
+            return Response(my_reponse.get_response_error_dict(msg='token异常或订单与顾客不匹配'), status=status.HTTP_400_BAD_REQUEST)
+
+
+    def get_serializer_class(self):
+        if self.action == 'comment_img_upload':
+            return CommentImageSerializer
+        elif self.action == 'driver_comment_goods':
+            return DriverCommentSerializer
+        elif self.action == 'customer_comment_goods':
+            return CustomerCommentSerializer
+        else:
+            return CommentImageSerializer
+
+    def get_queryset(self):
+        if self.action == 'comment_img_upload':
+            return GoodsCommentImageInfo.objects.all()
+        elif self.action == 'driver_comment_goods' \
+                or self.action == 'customer_comment_goods':
+            return GoodsInfo.objects.all()
+        else:
+            return GoodsCommentImageInfo.objects.all()

@@ -29,7 +29,7 @@ def get_response_dict(data='', msg=''):
         dict["Data"] = list
     return dict
 
-def get_response_error_dict(msg=''):
+def get_response_error_dict(msg='', data=None):
     """
     添加返回错误提示
     :return:
@@ -41,5 +41,5 @@ def get_response_error_dict(msg=''):
     else:
         dict["Msg"] = msg
     dict["Sussess"] = False
-    dict["Data"] = None
+    dict["Data"] = data
     return dict

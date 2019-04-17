@@ -1,10 +1,11 @@
-import json, math, hashlib, requests
+import json, math, hashlib, requests, os, shutil, time, datetime, re
 from rest_framework import status
 from rest_framework.response import Response
 
 from apps.goods.models import KmPriceInfo
 from apps.area.models import Areainfo
 from utils import my_reponse
+from XJSExpress import settings
 
 def md5(str):
     """
@@ -187,4 +188,43 @@ def price_func(price, value, start, start_price, exceed, exceed_price):
             price += start_price + math.ceil((value - start) / exceed) * exceed_price
         # print(price)
         return price
+
+def upload_img(serializer, file_name, path):
+    """
+    保存图片
+    :param serializer:
+    :param file_name:
+    :param path:
+    :return:
+    """
+    data_keys = serializer.validated_data.keys()
+    if file_name in data_keys:
+        img_file = serializer.validated_data[file_name]
+    else:
+        img_file = None
+
+    dirs = ''
+    meidia_str = settings.MEDIA_URL
+    meidia_str = re.sub('/', '', meidia_str)
+    if img_file:
+        new_path = path
+        if not new_path: dirs = meidia_str + '/' + str(datetime.date.year) + '/'
+        else: dirs = meidia_str + '/' + path
+        # save_path = dirs + img_file.name  # 文件保存路径
+        name = img_file.name
+        name = name.split('.')
+        save_path = dirs + md5(img_file.name + str(int(time.time()))) + '.' + name[-1]  # 文件保存路径
+        try:
+            if not os.path.exists(dirs):  # 检测订单文件夹路径
+                os.makedirs(dirs)
+            with open(save_path, 'wb') as f:
+                for content in img_file.chunks():
+                    f.write(content)
+        except Exception as e:
+            if os.path.exists(dirs):
+                shutil.rmtree(dirs)
+            return Response(my_reponse.get_response_error_dict(msg='图片提交失败，请稍后再试'),
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return re.sub('media/', '', save_path)
+    return None
 
